@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gambia Connectivity Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#0b1d12;--card:#12301d;--ink:#e8f5ec;--mut:#8fb59d;--acc:#3ddc84;--line:#1f4a2e}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:900px;margin:0 auto;padding:16px}h1{font-size:20px;margin:0 0 4px}.mut{color:var(--mut);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:15px;margin:0 0 8px}.big{font-size:32px;font-weight:700;color:var(--acc)}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}.row .l{width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .b{flex:1;background:#0b1d12;border-radius:5px;height:14px}.row .b i{display:block;height:100%;background:var(--acc);border-radius:5px}
+#map{height:340px;border-radius:10px}.item{border-top:1px solid var(--line);padding:8px 0}.tag{font-size:11px;background:var(--line);padding:2px 8px;border-radius:99px;color:var(--mut)}
+a{color:var(--acc)}
+</style></head><body><main>
+<h1>📶 Gambia Connectivity Dashboard</h1>
+<div class="mut">Crowd-reported outages, slow speeds and price complaints (reviewed before publishing). Locations are rounded to ~1 km. <a href="index.html">Open the NetSaver app</a></div>
+<div id="msg" class="mut" style="margin:10px 0"></div>
+<div class="grid" style="margin-top:12px">
+  <div class="card"><h2>Approved reports</h2><div class="big" id="total">–</div></div>
+  <div class="card"><h2>By type</h2><div id="types"></div></div>
+  <div class="card"><h2>By provider</h2><div id="provs"></div></div>
+</div>
+<div class="card"><h2>Reports per day (last 30 days)</h2><div id="days"></div></div>
+<div class="card"><h2>Map (last 30 days)</h2><div id="map"></div></div>
+<div class="card"><h2>Latest reports</h2><div id="recent"></div></div>
+</main>
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const C=window.NS_CONFIG||{};
+const H={apikey:C.SUPABASE_ANON,Authorization:'Bearer '+C.SUPABASE_ANON,'Content-Type':'application/json'};
+const COL={'Outage':'#ff6b6b','Slow speed':'#ffcc4d','Price complaint':'#6bb6ff','Other':'#b39ddb'};
+function bars(el,obj){
+  const e=Object.entries(obj),max=Math.max(1,...e.map(x=>x[1]));
+  el.innerHTML=e.map(([k,v])=>`<div class="row"><span class="l">${esc(k)}</span><span class="b"><i style="width:${v/max*100}%"></i></span><span>${v}</span></div>`).join('')||'<div class="mut">No data yet.</div>';
+}
+async function load(){
+  if(!C.SUPABASE_URL||!C.SUPABASE_ANON){$('msg').textContent='Not configured: fill in config.js with your Supabase URL and anon key.';return}
+  try{
+    const [sr,rr]=await Promise.all([
+      fetch(C.SUPABASE_URL+'/rest/v1/rpc/get_stats',{method:'POST',headers:H,body:'{}'}),
+      fetch(C.SUPABASE_URL+'/rest/v1/reports?select=created_at,type,provider,body&approved=eq.true&order=created_at.desc&limit=20',{headers:H})]);
+    if(!sr.ok||!rr.ok)throw new Error('HTTP '+sr.status+'/'+rr.status);
+    const s=await sr.json(),rec=await rr.json();
+    $('total').textContent=s.total;bars($('types'),s.by_type);bars($('provs'),s.by_provider);
+    const d={};(s.by_day||[]).forEach(x=>d[x.day.slice(5)]=x.n);bars($('days'),d);
+    $('recent').innerHTML=rec.map(r=>`<div class="item"><b>${esc(r.type)}</b> <span class="tag">${esc(r.provider||'Unknown')}</span> <span class="mut">${new Date(r.created_at).toLocaleDateString()}</span><div>${esc(r.body)}</div></div>`).join('')||'<div class="mut">No approved reports yet.</div>';
+    if(window.L){
+      const m=L.map('map').setView([13.45,-15.6],8);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:14,attribution:'© OpenStreetMap contributors'}).addTo(m);
+      (s.points||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:7,color:COL[p.type]||'#fff',fillOpacity:.6}).addTo(m).bindPopup(esc(p.type)));
+    }else $('map').innerHTML='<div class="mut" style="padding:12px">Map needs an internet connection.</div>';
+  }catch(e){$('msg').textContent='Could not load data: '+e.message}
+}
+load();
+</script></body></html>

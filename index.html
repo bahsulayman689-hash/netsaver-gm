@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1d12">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>NetSaver GM</title>
+<style>
+:root{--bg:#0b1d12;--card:#12301d;--ink:#e8f5ec;--mut:#8fb59d;--acc:#3ddc84;--bad:#ff6b6b;--warn:#ffcc4d;--line:#1f4a2e}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:70px}
+header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0}#status{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--line)}
+#status.up{color:var(--acc)}#status.down{color:var(--bad)}
+main{max-width:720px;margin:0 auto;padding:14px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--line)}
+nav button{flex:1;padding:12px 4px;background:none;border:0;color:var(--mut);font-size:12px}nav button.on{color:var(--acc);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:16px;margin:0 0 10px}h3{font-size:14px;margin:0 0 4px}
+input,select,textarea{width:100%;padding:9px;margin:4px 0 8px;background:#0b1d12;color:var(--ink);border:1px solid var(--line);border-radius:8px;font:inherit}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button.b{background:var(--acc);color:#04210f;border:0;padding:9px 14px;border-radius:8px;font-weight:700;cursor:pointer}
+button.g{background:none;color:var(--mut);border:1px solid var(--line);padding:6px 10px;border-radius:8px;cursor:pointer}
+.bar{height:12px;background:#0b1d12;border-radius:6px;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%;background:var(--acc)}
+.mut{color:var(--mut);font-size:13px}.big{font-size:26px;font-weight:700}
+.item{border-top:1px solid var(--line);padding:8px 0}.tag{font-size:11px;background:var(--line);padding:2px 8px;border-radius:99px;color:var(--mut)}
+.good{color:var(--acc)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:5px;text-align:left;border-top:1px solid var(--line)}
+section{display:none}section.on{display:block}
+.item div{white-space:pre-wrap}</style>
+</head>
+<body>
+<header><h1>📶 NetSaver GM</h1><span><select id="langSel" onchange="setLang(this.value)" style="width:auto;margin:0 6px 0 0;padding:3px"><option value="en">EN</option><option value="wo">WO</option><option value="mnk">MNK</option></select><span id="status">checking…</span></span></header>
+<main>
+
+<section id="plan" class="on">
+  <div class="card"><h2 data-i="h_active">Active data bundle</h2><div id="active"></div></div>
+  <div class="card"><h2 data-i="h_log">Log usage</h2>
+    <div class="row"><input id="useMB" type="number" min="0" placeholder="MB used"><button class="b" onclick="logUse()">Add</button></div>
+    <div class="mut">Check your balance (e.g. via your provider's USSD code) and log what you used. Everything stays on your phone.</div></div>
+  <div class="card"><h2 data-i="h_compare">Compare bundles</h2>
+    <div class="row"><input id="bName" placeholder="Name (e.g. Weekly 5GB)"><input id="bPrice" type="number" placeholder="Price (GMD)"></div>
+    <div class="row"><input id="bMB" type="number" placeholder="Size (MB)"><input id="bDays" type="number" placeholder="Valid (days)"></div>
+    <button class="b" onclick="addBundle()">Save bundle</button>
+    <div id="bundles" style="margin-top:10px"></div>
+    <div class="mut">Enter real prices from your provider. Cheapest cost per GB is marked ★.</div></div>
+</section>
+
+<section id="lib">
+  <div class="card"><h2 data-i="h_lib">Offline library</h2>
+    <input id="q" placeholder="Search notes…" oninput="renderLib()"><select id="cat" onchange="renderLib()"></select>
+    <div id="libList"></div></div>
+  <div class="card"><h2 data-i="h_add">Add a note / lesson</h2>
+    <input id="nTitle" placeholder="Title"><input id="nCat" placeholder="Category (Maths, Physics, Rights, Farming…)">
+    <textarea id="nBody" rows="4" placeholder="Content"></textarea>
+    <button class="b" onclick="addNote()">Save offline</button>
+    <div class="row" style="margin-top:8px"><button class="g" onclick="exportLib()">Export JSON</button>
+    <button class="g" onclick="document.getElementById('imp').click()">Import JSON</button></div>
+    <input id="imp" type="file" accept=".json" hidden onchange="importLib(event)">
+    <div class="mut">Export and share the file via Bluetooth/SD/WhatsApp so others get content without using data.</div></div>
+</section>
+
+<section id="tools">
+  <div class="card"><h2 data-i="h_loan">Loan calculator (works offline)</h2>
+    <div class="row"><input id="lP" type="number" placeholder="Amount (GMD)"><input id="lR" type="number" placeholder="Interest % per month"></div>
+    <div class="row"><input id="lN" type="number" placeholder="Months"><button class="b" onclick="calcLoan()">Calculate</button></div>
+    <div id="lOut"></div></div>
+  <div class="card"><h2 data-i="h_save">Savings goal</h2>
+    <div class="row"><input id="sG" type="number" placeholder="Goal (GMD)"><input id="sM" type="number" placeholder="Months"></div>
+    <button class="b" onclick="calcSave()">Calculate</button><div id="sOut"></div></div>
+</section>
+
+<section id="mon">
+  <div class="card"><h2 data-i="h_mon">Connection monitor</h2>
+    <div class="row"><div><div class="big" id="upt">–</div><div class="mut">Uptime</div></div>
+    <div><div class="big" id="lat">–</div><div class="mut">Avg latency (ms)</div></div>
+    <div><div class="big" id="outs">–</div><div class="mut">Outages</div></div></div></div>
+  <div class="card"><h2>Log</h2><div id="monLog"></div>
+    <div class="row" style="margin-top:8px"><button class="g" onclick="exportMon()">Export CSV</button><button class="g" onclick="clearMon()">Clear</button></div>
+    <div class="mut">Pings this app's own server every 30s while open. Use the export as evidence when reporting outages or poor service.</div></div>
+</section>
+
+<section id="out">
+  <div class="card"><h2 data-i="h_out">Outbox (send when online)</h2>
+    <select id="rType"><option>Outage</option><option>Slow speed</option><option>Price complaint</option><option>Other</option></select>
+    <input id="rProv" placeholder="Provider (optional)">
+    <textarea id="rText" rows="3" placeholder="What happened?"></textarea>
+    <div class="row"><button class="g" onclick="getLoc()">📍 Add location</button><button class="b" onclick="queueReport()">Queue report</button></div>
+    <div id="loc" class="mut"></div>
+    <label class="mut"><input type="checkbox" id="consent" style="width:auto;margin-right:6px">I agree this report may be shown publicly after review. No names or phone numbers please.</label></div>
+  <div class="card"><h2>Queue <span id="qn" class="tag"></span></h2><div id="queue"></div>
+    <button class="b" onclick="flush()">Send now</button><div id="qmsg" class="mut"></div></div>
+  <div class="card"><h2>Public dashboard</h2><div class="mut">Approved reports appear on <a href="dashboard.html" style="color:var(--acc)">dashboard.html</a>. Location is rounded to about 1 km. Reports stay on your phone until you are online.</div></div>
+</section>
+</main>
+
+<nav>
+  <button class="on" data-t="plan">💰 Data</button><button data-t="lib">📚 Library</button>
+  <button data-t="tools">🧮 Tools</button><button data-t="mon">📡 Monitor</button><button data-t="out">📤 Outbox</button>
+</nav>
+
+<script src="config.js"></script><script src="content.js"></script><script src="i18n.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ld=(k,d)=>{try{const v=localStorage.getItem('ns_'+k);return v?JSON.parse(v):d}catch{return d}};
+const sv=(k,v)=>{try{localStorage.setItem('ns_'+k,JSON.stringify(v))}catch{alert('Storage full')}};
+const fmt=n=>Number(n).toLocaleString(undefined,{maximumFractionDigits:2});
+
+let bundles=ld('bundles',[]), active=ld('active',null), usage=ld('usage',[]);
+let notes=ld('notes',null), mon=ld('mon',[]), queue=ld('queue',[]), settings=ld('settings',{endpoint:'',apikey:''}), loc=null;
+
+if(!notes){notes=[
+ {id:1,title:'Quadratic formula',cat:'Maths',body:'For ax²+bx+c=0: x = (−b ± √(b²−4ac)) / 2a. Discriminant b²−4ac: >0 two real roots, =0 one repeated root, <0 no real roots.'},
+ {id:2,title:'Ohm\'s law and power',cat:'Physics',body:'V = IR. Power P = VI = I²R = V²/R. Series: R = R1+R2. Parallel: 1/R = 1/R1+1/R2.'},
+ {id:3,title:'Compound interest',cat:'Finance',body:'A = P(1 + r/n)^(nt). Before borrowing, always compare the total repayment, not just the monthly amount.'},
+ {id:4,title:'Saving mobile data',cat:'Tips',body:'Turn off auto-play video and app auto-updates, use Wi-Fi for downloads, download content once and share it offline, use data-saver mode in your browser.'}];sv('notes',notes)}
+
+mergePack();
+/* nav */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button,section').forEach(e=>e.classList.remove('on'));
+  b.classList.add('on');$(b.dataset.t).classList.add('on');
+  if(b.dataset.t==='mon')renderMon();
+});
+
+/* ---- DATA PLANNER ---- */
+function addBundle(){
+  const b={id:Date.now(),name:$('bName').value.trim(),price:+$('bPrice').value,mb:+$('bMB').value,days:+$('bDays').value};
+  if(!b.name||!(b.price>0)||!(b.mb>0)||!(b.days>0))return alert('Fill all fields with valid numbers');
+  bundles.push(b);sv('bundles',bundles);['bName','bPrice','bMB','bDays'].forEach(i=>$(i).value='');renderPlan();
+}
+function delBundle(id){bundles=bundles.filter(b=>b.id!==id);if(active&&active.id===id){active=null;sv('active',null)}sv('bundles',bundles);renderPlan()}
+function activate(id){active={id,start:Date.now(),used:0};sv('active',active);renderPlan()}
+function logUse(){
+  const v=+$('useMB').value;if(!(v>0)||!active)return alert('Activate a bundle first and enter MB used');
+  active.used+=v;usage.push({t:Date.now(),mb:v});sv('active',active);sv('usage',usage);$('useMB').value='';renderPlan();
+}
+function renderPlan(){
+  const b=active&&bundles.find(x=>x.id===active.id);
+  if(!b)$('active').innerHTML='<div class="mut">No active bundle. Save a bundle below and tap “Use”.</div>';
+  else{
+    const left=Math.max(0,b.mb-active.used),pct=Math.min(100,active.used/b.mb*100);
+    const daysLeft=Math.max(0,b.days-(Date.now()-active.start)/864e5);
+    const perDay=daysLeft>0?left/daysLeft:0;
+    const burn=active.used/Math.max(0.5,(Date.now()-active.start)/864e5);
+    const runOut=burn>0?left/burn:Infinity;
+    $('active').innerHTML=`<b>${esc(b.name)}</b> <span class="mut">(${fmt(b.price)} GMD)</span>
+    <div class="big">${fmt(left)} MB left</div><div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="mut">${daysLeft.toFixed(1)} days left · safe budget <b>${fmt(perDay)} MB/day</b></div>
+    <div class="${runOut<daysLeft?'bad':'good'}">${runOut<daysLeft?`⚠ At your pace it runs out in ${runOut.toFixed(1)} days — slow down`:'✓ You are on track'}</div>`;
+  }
+  const ranked=bundles.map(x=>({...x,perGB:x.price/(x.mb/1024)})).sort((a,c)=>a.perGB-c.perGB);
+  $('bundles').innerHTML=ranked.map((x,i)=>`<div class="item"><b>${i===0?'★ ':''}${esc(x.name)}</b>
+   <div class="mut">${fmt(x.price)} GMD · ${fmt(x.mb)} MB · ${x.days}d · <b>${fmt(x.perGB)} GMD/GB</b></div>
+   <button class="g" onclick="activate(${x.id})">Use</button> <button class="g" onclick="delBundle(${x.id})">Delete</button></div>`).join('')||'<div class="mut">No bundles saved yet.</div>';
+}
+
+/* ---- LIBRARY ---- */
+function renderLib(){
+  const q=$('q').value.toLowerCase(),sel=$('cat'),cur=sel.value;
+  const cats=[...new Set(notes.map(n=>n.cat))].sort();
+  sel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option>${esc(c)}</option>`).join('');
+  sel.value=cats.includes(cur)?cur:'';
+  $('libList').innerHTML=notes.filter(n=>(!sel.value||n.cat===sel.value)&&(n.title+n.cat+n.body).toLowerCase().includes(q)).map(n=>
+   `<div class="item"><h3>${esc(n.title)} <span class="tag">${esc(n.cat)}</span></h3><div>${esc(n.body)}</div>
+    <button class="g" onclick="delNote('${esc(n.id)}')">Delete</button></div>`).join('')||'<div class="mut">Nothing found.</div>';
+}
+function addNote(){
+  const t=$('nTitle').value.trim(),b=$('nBody').value.trim();if(!t||!b)return alert('Title and content required');
+  notes.unshift({id:Date.now(),title:t,cat:$('nCat').value.trim()||'General',body:b});sv('notes',notes);
+  ['nTitle','nCat','nBody'].forEach(i=>$(i).value='');renderLib();
+}
+function delNote(id){
+  if(String(id).startsWith('p-')){const g=ld('packGone',[]);g.push(id);sv('packGone',g)}
+  notes=notes.filter(n=>String(n.id)!==String(id));sv('notes',notes);renderLib();
+}
+function mergePack(){
+  const gone=new Set(ld('packGone',[])),have=new Set(notes.map(n=>String(n.id)));let add=0;
+  (window.NS_PACK||[]).forEach(p=>{if(!have.has(p.id)&&!gone.has(p.id)){notes.push({...p});add++}});
+  if(add)sv('notes',notes);
+}
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click()}
+function exportLib(){dl('netsaver-library.json',JSON.stringify(notes,null,1),'application/json')}
+function importLib(e){
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const arr=JSON.parse(r.result);if(!Array.isArray(arr))throw 0;
+    const have=new Set(notes.map(n=>n.title+n.body));
+    arr.filter(n=>n&&n.title&&n.body&&!have.has(n.title+n.body)).forEach(n=>notes.push({id:Date.now()+Math.random(),title:String(n.title),cat:String(n.cat||'General'),body:String(n.body)}));
+    sv('notes',notes);renderLib();alert('Imported')}catch{alert('Invalid file')}};
+  r.readAsText(f);
+}
+
+/* ---- TOOLS ---- */
+function calcLoan(){
+  const P=+$('lP').value,r=+$('lR').value/100,n=+$('lN').value;if(!(P>0&&n>0&&r>=0))return alert('Enter valid values');
+  const m=r===0?P/n:P*r/(1-Math.pow(1+r,-n));const tot=m*n;
+  $('lOut').innerHTML=`<div class="big">${fmt(m)} GMD/month</div><div class="mut">Total repaid ${fmt(tot)} · interest ${fmt(tot-P)} (${fmt((tot-P)/P*100)}% of the loan)</div>`;
+}
+function calcSave(){
+  const g=+$('sG').value,m=+$('sM').value;if(!(g>0&&m>0))return alert('Enter valid values');
+  $('sOut').innerHTML=`<div class="big">${fmt(g/m)} GMD/month</div><div class="mut">${fmt(g/m/4.33)} per week</div>`;
+}
+
+/* ---- MONITOR ---- */
+let lastState=null;
+async function ping(){
+  const t0=performance.now();let ok=false,ms=null;
+  try{
+    const c=new AbortController();const to=setTimeout(()=>c.abort(),8000);
+    const r=await fetch('ping.txt?'+Date.now(),{cache:'no-store',signal:c.signal});clearTimeout(to);
+    ok=r.ok;ms=Math.round(performance.now()-t0);
+  }catch{ok=false}
+  if(!navigator.onLine)ok=false;
+  mon.push({t:Date.now(),ok,ms});if(mon.length>2000)mon=mon.slice(-2000);sv('mon',mon);
+  setStatus(ok);
+  if(ok&&queue.length&&lastState===false)flush();
+  lastState=ok;renderMon();
+}
+function setStatus(ok){const s=$('status');s.textContent='● '+tr(ok?'online':'offline',ok?'online':'offline');s.className=ok?'up':'down'}
+function renderMon(){
+  if(!$('mon').classList.contains('on'))return;
+  const n=mon.length||1,up=mon.filter(x=>x.ok),lat=up.filter(x=>x.ms!=null);
+  let outs=0;mon.forEach((x,i)=>{if(!x.ok&&(i===0||mon[i-1].ok))outs++});
+  $('upt').textContent=(up.length/n*100).toFixed(1)+'%';
+  $('lat').textContent=lat.length?Math.round(lat.reduce((a,x)=>a+x.ms,0)/lat.length):'–';
+  $('outs').textContent=outs;
+  const ev=[];mon.forEach((x,i)=>{if(i===0||x.ok!==mon[i-1].ok)ev.push(x)});
+  $('monLog').innerHTML='<table>'+ev.slice(-15).reverse().map(x=>`<tr><td>${new Date(x.t).toLocaleString()}</td><td class="${x.ok?'good':'bad'}">${x.ok?'Back online':'Went offline'}</td></tr>`).join('')+'</table>'||'';
+}
+function exportMon(){dl('connection-log.csv','timestamp,online,latency_ms\n'+mon.map(x=>`${new Date(x.t).toISOString()},${x.ok?1:0},${x.ms??''}`).join('\n'),'text/csv')}
+function clearMon(){if(confirm('Clear monitor log?')){mon=[];sv('mon',mon);renderMon()}}
+addEventListener('online',ping);addEventListener('offline',ping);
+
+/* ---- OUTBOX ---- */
+function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,12)}
+function queueReport(){
+  const text=$('rText').value.trim();
+  if(text.length<3)return alert('Describe the problem');
+  if(!$('consent').checked)return alert('Please tick the box to agree the report may be shown publicly');
+  queue.push({cid:uid(),type:$('rType').value,provider:$('rProv').value.trim().slice(0,40),text:text.slice(0,500),loc,at:new Date().toISOString(),lang:LG});
+  sv('queue',queue);$('rText').value='';$('rProv').value='';$('consent').checked=false;loc=null;$('loc').textContent='';renderQueue();
+  if(navigator.onLine)flush();
+}
+function renderQueue(){
+  $('qn').textContent=queue.length;
+  $('queue').innerHTML=queue.map(r=>`<div class="item"><b>${esc(r.type)}</b> <span class="mut">${new Date(r.at).toLocaleString()}</span><div>${esc(r.text)}</div></div>`).join('')||'<div class="mut">Nothing waiting.</div>';
+}
+let flushing=false;
+async function flush(){
+  if(!queue.length||flushing)return;
+  const C=window.NS_CONFIG||{};
+  if(!C.SUPABASE_URL||!C.SUPABASE_ANON){$('qmsg').textContent='Backend not configured yet: reports stay saved on your phone.';return}
+  if(!navigator.onLine){$('qmsg').textContent='Offline: will send automatically when the connection returns.';return}
+  flushing=true;const left=[];let sent=0,dropped=0;
+  for(const r of queue){
+    try{
+      const res=await fetch(C.SUPABASE_URL+'/rest/v1/reports?on_conflict=client_id',{method:'POST',
+        headers:{apikey:C.SUPABASE_ANON,Authorization:'Bearer '+C.SUPABASE_ANON,'Content-Type':'application/json',Prefer:'resolution=ignore-duplicates,return=minimal'},
+        body:JSON.stringify({client_id:r.cid||('v1-'+r.id),reported_at:r.at,type:r.type,provider:r.provider||null,body:r.text,
+          lat:r.loc?r.loc.lat:null,lng:r.loc?r.loc.lng:null,lang:r.lang||'en'})});
+      if(res.ok)sent++;
+      else if(res.status>=400&&res.status<500&&res.status!==408&&res.status!==429)dropped++;
+      else left.push(r);
+    }catch{left.push(r)}
+  }
+  queue=left;sv('queue',queue);flushing=false;renderQueue();
+  $('qmsg').textContent=`Sent ${sent}${dropped?`, rejected ${dropped} (invalid)`:''}${left.length?`, ${left.length} will retry`:''}. Thank you!`;
+}
+function inGambia(la,ln){return la>=13.0&&la<=13.9&&ln>=-16.9&&ln<=-13.7}
+function getLoc(){
+  if(!navigator.geolocation)return alert('Location not supported');
+  navigator.geolocation.getCurrentPosition(p=>{
+    const la=+p.coords.latitude.toFixed(2),ln=+p.coords.longitude.toFixed(2);
+    if(!inGambia(la,ln)){loc=null;$('loc').textContent='Location is outside The Gambia, not attached.';return}
+    loc={lat:la,lng:ln};$('loc').textContent=`📍 ${la}, ${ln} (rounded to ~1 km)`;
+  },()=>alert('Could not get location'),{timeout:10000});
+}
+
+/* ---- LANGUAGE ---- */
+let LG=ld('lang','en');
+function tr(k,en){const d=(window.NS_I18N||{})[LG];return (d&&d[k])||en}
+function applyLang(){
+  $('langSel').value=LG;
+  document.querySelectorAll('[data-i]').forEach(e=>{if(!e.dataset.en)e.dataset.en=e.textContent;e.textContent=tr(e.dataset.i,e.dataset.en)});
+  const NAV={plan:['💰','Data'],lib:['📚','Library'],tools:['🧮','Tools'],mon:['📡','Monitor'],out:['📤','Outbox']};
+  document.querySelectorAll('nav button').forEach(b=>{const [i,e]=NAV[b.dataset.t];b.textContent=i+' '+tr('nav_'+b.dataset.t,e)});
+  if(lastState!==null)setStatus(lastState);
+}
+function setLang(l){LG=l;sv('lang',l);applyLang()}
+
+/* ---- INIT ---- */
+renderPlan();renderLib();renderQueue();applyLang();ping();setInterval(ping,30000);
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
