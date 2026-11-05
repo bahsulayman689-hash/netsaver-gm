@@ -1,60 +1,104 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F3F6F8" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0C1824" media="(prefers-color-scheme: dark)">
 <title>Gambia Connectivity Dashboard</title>
+<link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-:root{--bg:#0b1d12;--card:#12301d;--ink:#e8f5ec;--mut:#8fb59d;--acc:#3ddc84;--line:#1f4a2e}
-*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-main{max-width:900px;margin:0 auto;padding:16px}h1{font-size:20px;margin:0 0 4px}.mut{color:var(--mut);font-size:13px}
+:root{color-scheme:light dark;--bg:#F3F6F8;--card:#FFFFFF;--ink:#0F2A43;--mut:#4A5E71;--acc:#14589E;--line:#D8E1E8;--on-acc:#FFFFFF}
+@media (prefers-color-scheme:dark){:root{--bg:#0C1824;--card:#132434;--ink:#E7EEF5;--mut:#9FB3C5;--acc:#6DB0F0;--line:#25394C;--on-acc:#08203A}}
+.flag{height:8px;background:linear-gradient(to bottom,#CE1126 0 2.5px,#fff 2.5px 3.25px,#0C1C8C 3.25px 4.75px,#fff 4.75px 5.5px,#3A7728 5.5px 8px)}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:env(safe-area-inset-bottom)}
+main{max-width:900px;margin:0 auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top))}h1{font-size:20px;margin:0 0 4px}.mut{color:var(--mut);font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-h2{font-size:15px;margin:0 0 8px}.big{font-size:32px;font-weight:700;color:var(--acc)}
-.row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}.row .l{width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .b{flex:1;background:#0b1d12;border-radius:5px;height:14px}.row .b i{display:block;height:100%;background:var(--acc);border-radius:5px}
-#map{height:340px;border-radius:10px}.item{border-top:1px solid var(--line);padding:8px 0}.tag{font-size:11px;background:var(--line);padding:2px 8px;border-radius:99px;color:var(--mut)}
+h2{font-size:15px;margin:0 0 8px}.big{font-size:32px;font-weight:800;color:var(--acc);font-variant-numeric:tabular-nums}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}.row .l{width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+.row .b{flex:1;background:var(--line);border-radius:5px;height:14px;overflow:hidden}.row .b i{display:block;height:100%;background:var(--acc);border-radius:5px}
+#map{height:340px;border-radius:10px}.item{border-top:1px solid var(--line);padding:8px 0;overflow-wrap:anywhere}.tag{font-size:11px;background:var(--line);padding:2px 8px;border-radius:99px;color:var(--mut)}
 a{color:var(--acc)}
-</style></head><body><main>
+.btn{min-height:44px;padding:0 18px;border:0;border-radius:8px;background:var(--acc);color:var(--on-acc);font:inherit;font-weight:700;cursor:pointer}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+</style></head><body><div class="flag" aria-hidden="true"></div><main>
 <h1>📶 Gambia Connectivity Dashboard</h1>
 <div class="mut">Crowd-reported outages, slow speeds and price complaints (reviewed before publishing). Locations are rounded to ~1 km. <a href="index.html">Open the NetSaver app</a></div>
-<div id="msg" class="mut" style="margin:10px 0"></div>
+<div id="msg" class="mut" role="status" style="margin:10px 0"></div>
 <div class="grid" style="margin-top:12px">
   <div class="card"><h2>Approved reports</h2><div class="big" id="total">–</div></div>
   <div class="card"><h2>By type</h2><div id="types"></div></div>
   <div class="card"><h2>By provider</h2><div id="provs"></div></div>
 </div>
+<div class="card"><h2>Median data price per GB, by provider (last 90 days)</h2><div id="prices"><span class="mut">No approved prices yet.</span></div><div class="mut">Based on user-shared bundles; ignores validity period. Lower is cheaper.</div></div>
 <div class="card"><h2>Reports per day (last 30 days)</h2><div id="days"></div></div>
-<div class="card"><h2>Map (last 30 days)</h2><div id="map"></div></div>
+<div class="card"><h2>Map (last 30 days)</h2>
+  <div id="mapBox"><button class="btn" id="mapBtn" onclick="showMap()">Show map</button> <span class="mut">Loads map tiles, which uses data.</span></div>
+  <div id="map" role="region" aria-label="Map of reports" hidden></div></div>
 <div class="card"><h2>Latest reports</h2><div id="recent"></div></div>
 </main>
 <script src="config.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>Number.isFinite(+v)?+v:0;
 const C=window.NS_CONFIG||{};
-const H={apikey:C.SUPABASE_ANON,Authorization:'Bearer '+C.SUPABASE_ANON,'Content-Type':'application/json'};
+const H={apikey:C.SUPABASE_ANON,...((C.SUPABASE_ANON||'').startsWith('eyJ')?{Authorization:'Bearer '+C.SUPABASE_ANON}:{}),'Content-Type':'application/json'};
 const COL={'Outage':'#ff6b6b','Slow speed':'#ffcc4d','Price complaint':'#6bb6ff','Other':'#b39ddb'};
+const KNOWN=['Africell','Qcell','Gamcel','Gamtel'];
+const normName=p=>{const l=String(p||'').toLowerCase();for(const k of KNOWN)if(l.includes(k.toLowerCase()))return k;return String(p||'').trim()||'Unknown'};
+const mergeProv=o=>{const r={};Object.entries(o||{}).forEach(([k,v])=>{const n=normName(k);r[n]=(r[n]||0)+num(v)});return r};
+/* hide phone-number-like text even if the database did not (keeps dates) */
+const hide=t=>String(t??'').replace(/\+?\d[\d\s\-().\/]{5,}\d/g,m=>(/\//.test(m)||/^\d{4}-\d{1,2}-\d{1,2}$/.test(m)||m.replace(/\D/g,'').length<7)?m:'[hidden]');
+const ls={get:()=>{try{return JSON.parse(localStorage.getItem('ns_dash'))}catch{return null}},set:v=>{try{localStorage.setItem('ns_dash',JSON.stringify(v))}catch{}}};
+let points=[],map=null;
+
 function bars(el,obj){
-  const e=Object.entries(obj),max=Math.max(1,...e.map(x=>x[1]));
-  el.innerHTML=e.map(([k,v])=>`<div class="row"><span class="l">${esc(k)}</span><span class="b"><i style="width:${v/max*100}%"></i></span><span>${v}</span></div>`).join('')||'<div class="mut">No data yet.</div>';
+  const e=Object.entries(obj||{}),max=Math.max(1,...e.map(x=>num(x[1])));
+  el.innerHTML=e.map(([k,v])=>`<div class="row"><span class="l" title="${esc(k)}">${esc(k)}</span><span class="b"><i style="width:${num(v)/max*100}%"></i></span><span>${num(v)}</span></div>`).join('')||'<div class="mut">No data yet.</div>';
+}
+function render(d){
+  const s=d.s||{};
+  $('total').textContent=num(s.total);bars($('types'),s.by_type);bars($('provs'),mergeProv(s.by_provider));
+  const dd={};(s.by_day||[]).forEach(x=>{dd[String(x.day).slice(5)]=num(x.n)});bars($('days'),dd);
+  $('recent').innerHTML=(d.rec||[]).map(r=>`<div class="item"><b>${esc(r.type)}</b> <span class="tag">${esc(normName(r.provider))}</span> <span class="mut">${esc(new Date(r.created_at).toLocaleDateString())}</span><div>${esc(hide(r.body))}</div></div>`).join('')||'<div class="mut">No approved reports yet.</div>';
+  const arr=d.prices||[];
+  if(arr.length){const mx=Math.max(1,...arr.map(x=>num(x.median_gmd_per_gb)));
+    $('prices').innerHTML=arr.map(x=>`<div class="row"><span class="l" title="${esc(x.provider)}">${esc(x.provider)}</span><span class="b"><i style="width:${num(x.median_gmd_per_gb)/mx*100}%"></i></span><span>${num(x.median_gmd_per_gb)} GMD <span class="mut">(n=${num(x.n)})</span></span></div>`).join('')}
+  points=(s.points||[]).filter(p=>Number.isFinite(+p.lat)&&Number.isFinite(+p.lng));
+}
+function showMap(){
+  $('mapBtn').disabled=true;
+  const go=()=>{
+    if(!window.L){$('mapBox').innerHTML='<div class="mut">The map needs an internet connection.</div>';return}
+    $('mapBox').hidden=true;$('map').hidden=false;
+    if(map)map.remove();
+    map=L.map('map').setView([13.45,-15.6],8);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:14,attribution:'© OpenStreetMap contributors'}).addTo(map);
+    points.forEach(p=>L.circleMarker([+p.lat,+p.lng],{radius:7,color:COL[p.type]||'#888',fillOpacity:.6}).addTo(map).bindPopup(esc(p.type)));
+  };
+  if(window.L)return go();
+  const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  sc.onload=go;sc.onerror=()=>{$('mapBox').innerHTML='<div class="mut">The map needs an internet connection.</div>'};document.head.appendChild(sc);
+}
+async function api(path,opt){
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),15000);
+  try{return await fetch(C.SUPABASE_URL+path,{...opt,headers:H,signal:c.signal})}finally{clearTimeout(t)}
 }
 async function load(){
+  if(/secret|service_role/i.test(C.SUPABASE_ANON||'')){$('msg').textContent='Config error: a SECRET key is configured. Use the publishable/anon key only.';return}
   if(!C.SUPABASE_URL||!C.SUPABASE_ANON){$('msg').textContent='Not configured: fill in config.js with your Supabase URL and anon key.';return}
   try{
-    const [sr,rr]=await Promise.all([
-      fetch(C.SUPABASE_URL+'/rest/v1/rpc/get_stats',{method:'POST',headers:H,body:'{}'}),
-      fetch(C.SUPABASE_URL+'/rest/v1/reports?select=created_at,type,provider,body&approved=eq.true&order=created_at.desc&limit=20',{headers:H})]);
+    const [sr,rr,pr]=await Promise.all([
+      api('/rest/v1/rpc/get_stats',{method:'POST',body:'{}'}),
+      api('/rest/v1/reports?select=created_at,type,provider,body&approved=eq.true&order=created_at.desc&limit=20'),
+      api('/rest/v1/rpc/get_price_stats',{method:'POST',body:'{}'}).catch(()=>null)]);
     if(!sr.ok||!rr.ok)throw new Error('HTTP '+sr.status+'/'+rr.status);
-    const s=await sr.json(),rec=await rr.json();
-    $('total').textContent=s.total;bars($('types'),s.by_type);bars($('provs'),s.by_provider);
-    const d={};(s.by_day||[]).forEach(x=>d[x.day.slice(5)]=x.n);bars($('days'),d);
-    $('recent').innerHTML=rec.map(r=>`<div class="item"><b>${esc(r.type)}</b> <span class="tag">${esc(r.provider||'Unknown')}</span> <span class="mut">${new Date(r.created_at).toLocaleDateString()}</span><div>${esc(r.body)}</div></div>`).join('')||'<div class="mut">No approved reports yet.</div>';
-    if(window.L){
-      const m=L.map('map').setView([13.45,-15.6],8);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:14,attribution:'© OpenStreetMap contributors'}).addTo(m);
-      (s.points||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:7,color:COL[p.type]||'#fff',fillOpacity:.6}).addTo(m).bindPopup(esc(p.type)));
-    }else $('map').innerHTML='<div class="mut" style="padding:12px">Map needs an internet connection.</div>';
-  }catch(e){$('msg').textContent='Could not load data: '+e.message}
+    const d={at:Date.now(),s:await sr.json(),rec:await rr.json(),prices:pr&&pr.ok?await pr.json():[]};
+    ls.set(d);render(d);$('msg').textContent='Updated '+new Date(d.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'.';
+  }catch(e){
+    const d=ls.get();
+    if(d){render(d);$('msg').textContent='No connection. Showing saved data from '+new Date(d.at).toLocaleString()+'.'}
+    else $('msg').textContent='Could not load data: '+(e.name==='AbortError'?'the connection timed out':e.message)
+  }
 }
 load();
 </script></body></html>
